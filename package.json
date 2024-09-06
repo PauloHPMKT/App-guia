@@ -9,13 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "tailwind-merge": "^2.5.2",
     "vue": "^3.4.37",
-    "vue-router": "^4.4.3"
+    "vue-router": "^4.4.3",
+    "vue3-lottie": "^3.3.0",
+    "vue3-toastify": "^0.2.3"
   },
   "devDependencies": {
+    "@iconify/vue": "^4.1.2",
     "@vitejs/plugin-vue": "^5.1.2",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.44",
+    "sass": "^1.78.0",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.3",
     "vite": "^5.4.1",

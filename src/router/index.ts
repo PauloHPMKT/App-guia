@@ -7,6 +7,24 @@ export const router = createRouter({
       path: '/',
       name: 'home',
       component: () => import('../views/HomeView.vue')
+    },
+    {
+      path: '/app',
+      name: 'app',
+      component: () => import('../Layout/AppLayout.vue'),
+      redirect: { name: 'dashboard' },
+      children: [
+        {
+          path: 'dashboard',
+          name: 'dashboard',
+          component: () => import('../views/app/Dashboard.vue')
+        },   
+        {
+          path: 'content-revisor',
+          name: 'content-revisor',
+          component: () => import('../views/app/ContentRevisor/index.vue')
+        },   
+      ]
     }
   ]
 })
