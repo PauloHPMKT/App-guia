@@ -12,16 +12,10 @@ const inputValue = ref('');
 const isModalVisible = ref(false);
 const isLoading = ref(false);
 
-async function saveReviewedContent() {
-  isLoading.value = true;
-  try {
-    await emit('action', inputValue.value);
-    close();
-  } catch (error) {
-    console.error('Erro ao salvar o conteúdo:', error);
-  } finally {
-    isLoading.value = false;
-  }
+function saveReviewedContent() {
+  //isLoading.value = true;
+  emit('action', inputValue.value);
+  close();
 }
 
 function open() {

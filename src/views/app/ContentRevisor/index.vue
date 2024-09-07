@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { ref, reactive, watchEffect, computed, onMounted, onUpdated } from 'vue';
+import { 
+  ref, 
+  reactive, 
+  watchEffect, 
+  computed, 
+  onMounted, 
+  onUpdated, 
+  inject 
+} from 'vue';
 import { Icon } from '@iconify/vue';
 import { useHelper } from '../../../composables/useHelper';
 import BreadcrumbButtons from '../../../components/BreadcrumbButton/index.vue';
@@ -8,21 +16,31 @@ import ContentReviewedList from './components/ContentReviewedList/index.vue';
 import MainButton from '../../../components/MainButton/index.vue';
 import Typography from '../../../components/Typography/index.vue';
 import { Breadcrumb } from '../../../types/Breadcrumb.types';
+import { OpenaiService } from '../../../services/openai/OpenaiService';
 import loadingBot from "../../../assets/lottie/loadingBot.json";
 import failed from "../../../assets/lottie/failed.json";
 
 const { copyToClipboard, pasteFromClipboard, pastedText } = useHelper();
 
+const openaiService = inject<OpenaiService>('openaiService'); 
+
+const reviewdContentToSave = reactive({
+  title: '',
+  content: '',
+})
+
 const content = ref('');
+const selectedAction = ref('');
 const words = ref(0);
 const scrollDown = ref<HTMLElement | null>(null);
 const isUSerActionsVisible = ref(true);
 const showErrorMessage = ref(false);
+const errorMessage = ref('');
 const showReviewdContentsList = ref(false);
 const showPopupSaveReviewdContent = ref(false);
 const enableBreadcrumbActions = ref(false);
-const renamedReviewdContent = ref<typeof RenameReviewedContent | null>(null)
-const hideAnimation = ref(null);
+const renamedReviewdContent = ref<typeof RenameReviewedContent | null>(null);
+const hideAnimation = ref<boolean | null>(null);
 const contentReviewed = ref('');
 const failedRequest = ref(true);
 const feedbackMessage = ref('');
@@ -74,6 +92,12 @@ const countWords = computed(() => (
   }
 ));
 
+const getIconImage = computed(() => {
+  return showReviewdContentsList.value 
+    ? 'solar:map-arrow-left-linear'
+    : 'solar:move-to-folder-linear' 
+})
+
 function cleanContent() {
   content.value = '';
   words.value = 0;
@@ -82,6 +106,10 @@ function cleanContent() {
   setAnimation.loopAnimation = false;
   setAnimation.speedAnimation = 1;
   feedbackMessage.value = '';
+  typewriterText.value = '';
+  enableBreadcrumbActions.value = false;
+  selectedAction.value = '';
+  errorMessage.value = '';
 }
 
 async function pasteTextFromClipboard() {
@@ -90,17 +118,31 @@ async function pasteTextFromClipboard() {
 }
 
 function startReview() {
-  if (words.value < 50) {
+  if (!selectedAction.value) {
     showErrorMessage.value = true;
+    errorMessage.value = "Selecione uma intenção para o texto!";
     return;
   }
+
+  if (words.value < 50) {
+    showErrorMessage.value = true;
+    errorMessage.value = "O texto deve conter no mínimo 50 palavras!";
+    return;
+  }
+
   showErrorMessage.value = false;
-  fetchingData();
+  fetchingData(content.value, selectedAction.value);
 };
 
-async function fetchingData() {
+async function loadFeedbackMessage(message: string) {
+  feedbackMessage.value = message;
+  await new Promise(resolve => setTimeout(resolve, 5000));
+};
+
+async function fetchingData(content: string, intention: string) {
   try {
    // Aqui vai ficar o prompt gerado
+    const request = { content, intention };
 
     const newAnimation = {
       loopAnimation: true,
@@ -109,27 +151,26 @@ async function fetchingData() {
     
     Object.assign(setAnimation, newAnimation);
     animationKey.value++
-  
-    feedbackMessage.value = 'Deixe-me gerar o melhor prompt para você!';
-    new Promise((resolve) => {
-      setTimeout(() => {
-        feedbackMessage.value = 'Só mais um poquinho, estamos quase lá...';
-        contentReviewed.value = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit. Non nesciunt iste nisi fugit dolores vero. Corporis numquam odit commodi omnis, beatae, deserunt, consequuntur eos nobis excepturi quis sapiente vitae blanditiis? Lorem ipsum dolor sit amet, consectetur adipisicing elit. Non nesciunt iste nisi fugit dolores vero. Corporis numquam odit commodi omnis, beatae, deserunt, consequuntur eos nobis excepturi quis sapiente vitae blanditiis? Lorem ipsum dolor sit amet, consectetur adipisicing elit. Non nesciunt iste nisi fugit dolores vero. Corporis numquam odit commodi omnis, beatae, deserunt, consequuntur eos nobis excepturi quis sapiente vitae blanditiis? Lorem ipsum dolor sit amet, consectetur adipisicing elit. Non nesciunt iste nisi fugit dolores vero. Corporis numquam odit commodi omnis, beatae, deserunt, consequuntur eos nobis excepturi quis sapiente vitae blanditiis? Lorem ipsum dolor sit amet, consectetur adipisicing elit. Non nesciunt iste nisi fugit dolores vero. Corporis numquam odit commodi omnis, beatae, deserunt, consequuntur eos nobis excepturi quis sapiente vitae blanditiis? Lorem ipsum dolor sit amet, consectetur adipisicing elit. Non nesciunt iste nisi fugit dolores vero. Corporis numquam odit commodi omnis, beatae, deserunt, consequuntur eos nobis excepturi quis sapiente vitae blanditiis? Lorem ipsum dolor sit amet, consectetur adipisicing elit. Non nesciunt iste nisi fugit dolores vero. Corporis numquam odit commodi omnis, beatae, deserunt, consequuntur eos nobis excepturi quis sapiente vitae blanditiis?';
-        resolve(typeWriter(contentReviewed.value, 0, () => {
-          enableBreadcrumbActions.value = true;
-        }));
-      }, 5000)
-    });
-  } catch (error) {
-    // if (error || error.status !== 400) {
-    //   message.value = "Erro ao gerar prompt!";
-    //   showToast("error", message.value);
-    //   Object.assign(setAnimation, { loopAnimation: false, speedAnimation: 1 });
-    //   animationKey.value++
-    //   hideAnimation.value = true;
-    //   failedRequest.value = true;
-    //   feedbackMessage.value = "Ops! Algo deu errado, tente novamente mais tarde!";
-    // }
+
+    await loadFeedbackMessage('Deixe-me revisar seu conteúdo! Por favor aguarde um momento...');
+
+    const { data, status } = await openaiService?.generateContentReview(request);
+    if (status === 201) {
+      contentReviewed.value = data
+      typeWriter(contentReviewed.value, 0, () => {
+        enableBreadcrumbActions.value = true;
+      });
+    }
+  } catch (error: Error) {
+    if (error || error.status !== 400) {
+      // message.value = "Erro ao gerar prompt!";
+      // showToast("error", message.value);
+      Object.assign(setAnimation, { loopAnimation: false, speedAnimation: 1 });
+      animationKey.value++
+      hideAnimation.value = true;
+      failedRequest.value = true;
+      feedbackMessage.value = "Ops! Algo deu errado, tente novamente mais tarde!";
+    }
   }
 }
 
@@ -165,13 +206,14 @@ function showToastSaveReviewdContent() {
   renamedReviewdContent.value?.open();
 };
 
-async function saveReviewdContent() {
-  console.log('Salvando conteúdo revisado...');
-  await new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(showPopupSaveReviewdContent.value = true)
-    }, 2000)
-  });
+async function saveReviewdContent(title: string) {
+  console.log('Salvando conteúdo revisado...', title);
+  const objectToSave = {
+    title: reviewdContentToSave.title = title,
+    content: contentReviewed.value
+  }
+
+  console.log(objectToSave);
 };
 
 const scrollToBottom = () => {
@@ -180,18 +222,31 @@ const scrollToBottom = () => {
   }
 };
 
-onMounted(() => {
+async function conectarComOService() {
+  try {
+    const response = await openaiService?.getUserData()
+    console.log(response)
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+onMounted(async () => {
   scrollToBottom()
+  await conectarComOService()
 });
 
-onUpdated(() => {
+onUpdated(async () => {
   scrollToBottom();
 });
+
 </script>
 
 <template>
   <!-- desabilitar ações durante o carregamento do conteudo revisado -->
   <!-- apontar barra de scroll sempre na posição que permita usuário ver que o conteudo ainda esta sendo carregado -->
+  <!-- Ao carregar a descrição deve-se neutralizar as ações, evitando clique indesejado -->
+  <!-- lembrar de fazer as requisições com o tanStack query -->
   <RenameReviewedContent 
     ref="renamedReviewdContent"
     @action="saveReviewdContent"
@@ -203,12 +258,17 @@ onUpdated(() => {
         Revisor de conteúdo
       </Typography>
 
-      <MainButton @click="showReviewdContentsList = true">
+      <MainButton @click="showReviewdContentsList = !showReviewdContentsList">
         <template v-slot:icon>
-          <Icon icon="solar:move-to-folder-linear" />
+          <Icon :icon="getIconImage" />
         </template>
         <template v-slot:label>
-          <span>Minhas revisões</span>
+          <span>
+            {{ showReviewdContentsList 
+              ? 'Voltar para o revisor' 
+              : 'Minhas revisões' 
+            }}
+          </span>
         </template>
       </MainButton>
     </div>
@@ -266,15 +326,27 @@ onUpdated(() => {
           </div>
         </div>
         <div class="absolute bottom-0 px-4 w-full h-20">
-          <div class="flex flex-row-reverse items-center justify-between text-gray-500">
+          <div class="flex flex-row-reverse items-center justify-between text-gray-500 mb-2">
             <p>Palavras digitadas: {{ words }}</p>
+
+            <select 
+              title="Ao selecionar uma intenção você estará informando ao sistema o que deseja fazer com o texto digitado"
+              id="actions" 
+              v-model="selectedAction"
+              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-gray-500 focus:border-gray-950 block w-[120px] p-2.5 "
+            >
+              <option disabled value="">Intenção</option>
+              <option value="resumo">Resumir</option>
+              <option value="revisao">Revisar</option>
+              <option value="correcao">Correção</option>
+            </select>
             
             <MainButton @click="startReview">
               <template v-slot:icon>
                 <Icon icon="solar:magic-stick-3-linear" />
               </template>
               <template v-slot:label>
-                <span>Iniciar revisão</span>
+                <span>Iniciar processo</span>
               </template>
             </MainButton>
           </div>
@@ -282,7 +354,7 @@ onUpdated(() => {
             v-if="showErrorMessage" 
             class="text-red-600 text-sm font-semibold"
           >
-            Seu texto deve conter pelo menos 50 palavras
+            {{ errorMessage }}
           </p>
         </div>
       </div>
