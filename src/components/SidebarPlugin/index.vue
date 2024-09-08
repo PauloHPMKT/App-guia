@@ -1,41 +1,14 @@
 <script setup lang="ts">
+import { useRoute } from "vue-router";
 import { Icon } from "@iconify/vue";
-//import { navigatePaths } from "../../routers/navigate-paths";
-//import { useRoute } from "vue-router";
-//import { useRouterOptions } from "../../composables/useOptions";
+import { useNavigation } from "../../composables/useNavigation";
 
-//const router = useRoute();
-//const { matchedRouter } = useRouterOptions();
+const router = useRoute();
+const { matchedRouter, navigatePaths } = useNavigation();
 
-// const isRouteActive = (route: string) => {
-//   return router.path === route || matchedRouter(route);
-// };
-const navigatePaths = [
-  {
-    id: 1,
-    icon: "home",
-    description: "Dashboard",
-    router: "/dashboard",
-  },
-  {
-    id: 2,
-    icon: "user",
-    description: "Usuários",
-    router: "/users",
-  },
-  {
-    id: 3,
-    icon: "document",
-    description: "Documentos",
-    router: "/documents",
-  },
-  {
-    id: 4,
-    icon: "settings",
-    description: "Configurações",
-    router: "/settings",
-  },
-];
+const isRouteActive = (route: string) => {
+  return router.path === `/app${route}` || matchedRouter(route);
+};
 </script>
 
 <template>
@@ -44,10 +17,11 @@ const navigatePaths = [
       <li
         v-for="link in navigatePaths"
         :key="link.id"
-        :class="{ active: '/dashboard' }"
+        class="text-white my-1"
+        :class="{ active: isRouteActive(link.router) }"
       >
         <router-link :to="{ path: `/app${link.router}`, exact: true }">
-          <Icon :icon="`carbon:${link.icon}`" />
+          <Icon :icon="`solar:${link.icon}`" />
           <span class="text-[15px]">{{ link.description }}</span>
         </router-link>
       </li>
@@ -57,7 +31,6 @@ const navigatePaths = [
 
 <style scoped lang="scss">
 li {
-  margin: 3px 0;
   transition: 0.3s ease-in-out;
   border-radius: 8px;
   font-size: 1rem;
@@ -76,6 +49,7 @@ li {
   &.active {
     background-color: #e7e6e8;
     color: #121212;
+    font-weight: 600;
   }
 
   &:hover:not(.active) {
