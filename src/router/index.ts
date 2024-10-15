@@ -9,6 +9,11 @@ export const router = createRouter({
       component: () => import('../views/HomeView.vue')
     },
     {
+      path: '/account',
+      name: 'account',
+      component: () => import('../views/Accounts.vue'),
+    },
+    {
       path: '/app',
       name: 'app',
       component: () => import('../Layout/AppLayout.vue'),
@@ -17,7 +22,7 @@ export const router = createRouter({
         {
           path: 'dashboard',
           name: 'dashboard',
-          component: () => import('../views/app/Dashboard.vue')
+          component: () => import('../views/app/MyApps/Dashboard.vue')
         },   
         {
           path: 'content-revisor',
